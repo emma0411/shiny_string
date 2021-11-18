@@ -2,6 +2,8 @@
 
 Calculate the maximum string size for a photovoltaic installation. The method is consistent with the NEC 2017 690.7 standard.
 
+This app is runing in https://emabel.shinyapps.io/Python/?_ga=2.26154045.1232658216.1637246362-1275330406.1617090812
+
 # References
 
 [1] N. N. F. P. Association, NFPA 70: National Electrical Code 2017. Delmar Cengage Learning, 2016
