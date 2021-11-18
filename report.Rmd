@@ -1,0 +1,197 @@
+---
+title: "Solar Photovoltaic String Length Calculator"
+site: bookdown::bookdown_site
+documentclass: book
+output: 
+  html_document:
+    toc: yes
+    toc_depth: 3
+    number_sections: TRUE
+    theme: cerulean
+    
+#author: Emma Amorós Belda 
+params:
+  table: 'NULL'
+  n: NA
+  m: NA
+  model: NA
+  figure: 'NULL'
+---
+
+```{r include=FALSE}
+library(formattable)
+library(reactable)
+library(leaflet)
+```
+
+------------------------------------------------------------------------
+
+**Calculate the maximum string size for a photovoltaic installation. The method is consistent with the NEC 2017 690.7 standard [1].**
+
+
+**Location:**
+
+-   Latitude: `r params$n`
+
+-   Longitude: `r params$m`
+
+```{r echo=FALSE}
+leaflet() %>%
+          addProviderTiles(#providers$Stamen.TonerLite,
+                           #options = providerTileOptions(noWrap = TRUE)
+                              #"Esri.WorldImagery"
+              "Esri.WorldTopoMap") %>%
+          addMarkers(params$m, params$n) %>%
+          setView(lng = params$m, lat = params$n, zoom =3.5) 
+```
+
+The calculation proceeds the following steeps:
+
+-   Load historical weather data for a location (from the PVGis or other source) .
+
+-   Provide details on module and installation type
+
+-   Set maximum allowable string voltage
+
+-   Model $V_{oc}$ for user-specified module technology , installation parameters and weather data.
+
+-   Analyze results, providing a standard value for string length.
+
+------------------------------------------------------------------------
+
+# Simulation methods
+
+## Calculation of $V_{oc}$
+
+Module open-circuit voltage $V_{oc}$ can be modeled by the following equation:
+
+$$
+V_{oc} = V_{oc0} + N_{s}\frac{n_{diode}k_{B}T}{q}log\frac{E}{E_o}+ \beta_{voc}(T-T_o)
+$$
+
+where $V_{oc0}$ is the open-circuit voltage at reference conditions, $n_{diode}$ is the diode ideality factor, $E$ is the effective plane-of-array irradiance, $N_s$ is the number of cells in series in the module, $E_o$ is the reference irradiance, $T_o$ is the reference temperature, $\beta_{voc}$ is the open-circuit voltage temperature coefficient, $k_{B}$ is the Boltzmann constante, and $q$ is the elementary charge.
+
+## Cell temperature
+
+To calculate the cell temperature, we have two options:
+
+-   **Sandia** array performance model
+
+    $$
+    T_{cell,MPP} = T_{ambient} + \frac{E}{E_o}ΔT + E\exp(a+bv)
+    $$ where $T_{cell,MPP}$ is the cell temperature at the MPP, $v$ is the wind speed measured and $a$, $b$ y $ΔT$ are the model parameters [4].
+
+-   **Fairman** model is given by
+
+    $$
+    T_{cell} = T_{ambient}+\frac{\alpha E(1-\eta_{m})}{U_0+U_1*v}
+    $$
+
+    model parameters, $U_0$ and $U_1$, combined heat loss factor and combined heat loss factor influenced by wind, respectively. The heat loss factors provided represent the combined effect of convection, radiation and conduction, and their values are experimentally determined. [5]
+
+## Safety factor
+
+It is important to add a safety factor in order to account for the uncertainties in the calculation. This is contrast to 690.7(A)(1,2) where the standard practice is to neglect a safety factor since the calculation is inherently conservative.
+
+We use several safety params ($S$):
+
+-   $V_{oc0}$ security factor: add a percentage of its value ($V_{oc0} + SV_{oc0}$).
+
+-   $B_{Voc0}$ security factor: add a percentage of its value ($B_{Voc0} + SB_{Voc0}$).
+
+-   $T_{ambient}$ security factor: decreases the air temperature value from the data available ($T_{ambient} - S$).
+
+-   $v$ security factor: increases the wind speed value from the data available ($v*S$)
+
+## Maximum string size
+
+The maximum string size $N_{string}$ is the largest integer satisfying
+
+$$
+N_{string} < \frac{V_{design}}{V_{max}}(1-SF)
+$$
+
+where $V_{design}$ is the system design voltage, typically 1500 V.
+
+------------------------------------------------------------------------
+
+# Results
+
+Using the weather data and the module parameters, the open circuit voltage is simulated using the single diode model. The table shows the recommended $V_{oc}$ values, voltage in Volts, cell temperature in Celsius and plane-of-array (POA) irradiance in $W/m^2$.
+
+-   **690.7(A)(3)-P99.5** is the **99.5 percentile Voc** value over the simulation time. This is the recommended value of Voc to use for designing PV string lengths. Statistically Voc will exceed this value only 0.5% of the year. Suppose that open circuit conditions occur 1% of the time randomly. In this case the probability that the weather and system design maintain the system voltage under the standard limit is 99.995%, i.e. max system voltage would statistically be exceeded for 26 minutes per year.
+
+-   **690.7(A)(3)-P100** is the **historical maximum** Voc over the years of simulation.
+
+-   **690.7(A)(1)** is the **traditional value** used for maximum Voc. This is found using the mean minimum yearly dry bulb temperature (i.e. find the minimum temperature in each year and take the mean of those values) from the database. The Voc is calculated assuming 1 sun irradiance ( 1000 W/m\^2), the mean minimum yearly dry bulb temperature and the module parameters.
+
+-   **690.7(A)(3)-DAY** is similar to the **traditional value**, except the mean minimum yearly daytime dry bulb temperature is used as the cell temperature for calculating Voc. Daytime is defined as GHI greater than 150 W/m\^2. The Voc is calculated assuming 1 sun irradiance (1000 W/m\^2), the mean minimum yearly daytime dry bulb temperature and the module parameters.
+
+Thermal model: `r params$model`
+
+```{r echo=FALSE}
+#formattable(params$table, align = c("l",rep("r", NCOL(params$table) - 1)),
+#list(`Indicator Name` = formatter("span", style = ~ style(color = "green", font.weight = #bold")), 
+#`Average` = color_bar("#FA614B"), 
+#`Improvement` = formatter("span", 
+#style = x ~ style(color = ifelse(x < 0, "red", "green")))))
+#
+formattable(params$table, 
+align = c("l",rep("r", NCOL(params$table) - 1)),
+list(`Indicator Name` = formatter("span", style = ~ style(color = "grey", font.weight = "bold")), 
+`Average` = color_bar("#FA614B"), 
+`Improvement` = formatter("span", 
+style = x ~ style(color = ifelse(x < 0, "red", "green")))))
+```
+
+The figure shows a histogram of open circuit voltage ($V_{oc}$) values, with the y axis scaled to the number of hours per year sepent at this open circuit voltage. Note that this voltage value would only be reached for a system in open circuit conditions. Typically PV arrays ooperate at the maximum power point, with a voltage approximatley 20% lower than the open circuit voltage.
+
+```{r echo=FALSE}
+datafigure1 <- data.frame(Voc = params$figure[[1]], hoursyears = params$figure[[2]])
+        
+        datafigure1 %>% hchart('column', hcaes(x =Voc, y = hoursyears)) %>% 
+            hc_title(text = 'Histogram of Voc Values over the simulation time') %>%
+            hc_xAxis(title = list(text = 'P99.5'),
+                     plotLines = list(
+                         list(
+                            value = params$table[[2]][1],
+                            color = '#ff0000',
+                            width = 3,
+                            label = list(text = paste('P99.5: ', round(params$table[[2]][1], digits = 2 )))),
+                         list(
+                             value = params$table[[2]][2],
+                             color = '#2AE06E',
+                             width = 3,
+                             label = list(text = paste('Hist: ', round(params$table[[2]][2], digits = 2 )))),
+                         list(
+                             value = params$table[[2]][3],
+                             color = '#D9D843',
+                             width = 3,
+                             label = list(text = paste('Trad: ', round(params$table[[2]][3], digits = 2 )))),
+                         list(
+                             value = params$table[[2]][4],
+                             color = '#0412E4',
+                             width = 3,
+                             label = list(text = paste('Trad daytime: ', round(params$table[[2]][4], digits = 2 ))))
+                         )) %>%
+            hc_legend(enabled = TRUE)
+```
+
+```{r eval=FALSE, include=FALSE}
+<h5>Legend</h5>
+<h5 class='text fit-h2' style="color: #ff0000;">P99.5</h5>
+<h5 class='text fit-h2' style="color: #2AE06E;">Historical</h5>
+<h5 class='text fit-h2' style="color: #D9D843;">Traditional</h5>
+<h5 class='text fit-h2' style="color: #0412E4;">Traditional daytime</h5>
+```
+# References
+
+[1] N. N. F. P. Association, NFPA 70: National Electrical Code 2017. Delmar Cengage Learning, 2016
+
+2] Todd Karin, Anubhav Jain "Photovoltaic String Sizing Using Site-Specific Modeling", IEEE Journal of Photovoltaics, Vol 10, No 3, May 2020. [link](https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=9000497)
+
+[3] [[pvtools.lbl.gov/string-length-calculator](https://pvtools.lbl.gov/string-length-calculator)] (<https://pvtools.lbl.gov/string-length-calculator>)
+
+[4] D. King, W. Boyson, and J. Kratochvill, "Photovoltaic array performance model," Sandia Nat. Lab., Albuquerque, NM, USA, Tech. Rep. SAND2004-3535, 2004
+
+[5] Faiman, D. (2008). "Assessing the outdoor operating temperature of photovoltaic modules." Progress in Photovoltaics 16(4): 307-315
